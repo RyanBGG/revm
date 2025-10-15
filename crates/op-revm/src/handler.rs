@@ -120,17 +120,17 @@ where
                 - tx.value();
 
             // Mind value should be added first before subtracting the effective balance spending.
-            let mut new_balance = caller_account
+            let new_balance = caller_account
                 .info
                 .balance
                 .saturating_add(U256::from(tx.mint().unwrap_or_default()))
                 .saturating_sub(effective_balance_spending);
 
-            if cfg.is_balance_check_disabled() {
-                // Make sure the caller's balance is at least the value of the transaction.
-                // this is not consensus critical, and it is used in testing.
-                new_balance = new_balance.max(tx.value());
-            }
+            let new_balance = pre_execution::apply_balance_check_adjustment(
+                new_balance,
+                tx.value(),
+                cfg.is_balance_check_disabled(),
+            );
 
             let old_balance =
                 caller_account.caller_initial_modification(new_balance, tx.kind().is_call());
@@ -214,11 +214,11 @@ where
 
         new_balance = new_balance.saturating_sub(op_gas_balance_spending);
 
-        if is_balance_check_disabled {
-            // Make sure the caller's balance is at least the value of the transaction.
-            // this is not consensus critical, and it is used in testing.
-            new_balance = new_balance.max(tx.value());
-        }
+        let new_balance = pre_execution::apply_balance_check_adjustment(
+            new_balance,
+            tx.value(),
+            is_balance_check_disabled,
+        );
 
         let old_balance =
             caller_account.caller_initial_modification(new_balance, tx.kind().is_call());

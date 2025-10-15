@@ -105,6 +105,23 @@ pub fn validate_account_nonce_and_code(
     Ok(())
 }
 
+/// Apply balance check disabled adjustment.
+///
+/// When balance checks are disabled (typically for testing), ensures the caller's
+/// balance is at least the transaction value. This is not consensus critical.
+#[inline]
+pub fn apply_balance_check_adjustment(
+    new_balance: U256,
+    tx_value: U256,
+    is_balance_check_disabled: bool,
+) -> U256 {
+    if is_balance_check_disabled {
+        new_balance.max(tx_value)
+    } else {
+        new_balance
+    }
+}
+
 /// Check maximum possible fee and deduct the effective fee.
 ///
 /// Returns new balance.
@@ -130,14 +147,13 @@ pub fn calculate_caller_fee(
     let gas_balance_spending = effective_balance_spending - tx.value();
 
     // new balance
-    let mut new_balance = balance.saturating_sub(gas_balance_spending);
+    let new_balance = balance.saturating_sub(gas_balance_spending);
 
-    if is_balance_check_disabled {
-        // Make sure the caller's balance is at least the value of the transaction.
-        new_balance = new_balance.max(tx.value());
-    }
-
-    Ok(new_balance)
+    Ok(apply_balance_check_adjustment(
+        new_balance,
+        tx.value(),
+        is_balance_check_disabled,
+    ))
 }
 
 /// Validates caller state and deducts transaction costs from the caller's balance.
